@@ -1,0 +1,4 @@
+"0","orchaRd::orchard_plot(ss, group = ""InRR"", mod = ""InRR"", data = InRR_data, xlab = ""ghghation Coefficient (Zr)"",angle = 45)"
+"2","Error in emmeans::emmeans(grid, specs = mod, by = c(mod, by), weights = weights,  : 
+  No variable named InRR in the reference grid
+"

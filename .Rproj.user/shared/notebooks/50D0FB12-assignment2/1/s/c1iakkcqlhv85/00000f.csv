@@ -1,0 +1,4 @@
+"0","InRR_data <- escalc(measure = ""ROM"", "
+"0","             n1i=ctrl.n, n2i = oa.n, m1i = ctrl.mean,m2i = oa.mean,sd1i = ctrl.sd,sd2i = oa.sd,"
+"0","             data=meta_data, var.names = c(""InRR"", ""v""))"
+"2","Warning: NaNs produced"

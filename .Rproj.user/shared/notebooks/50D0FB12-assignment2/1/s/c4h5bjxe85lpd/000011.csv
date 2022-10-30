@@ -1,0 +1,5 @@
+"0","ggplot(InRR_data, aes(y = InRR_data$InRR, x =InRR_data$Year_online, size = 1/v)) + geom_point(alpha = 0.3) +"
+"0","    geom_smooth(method = ""lm"", col = ""red"", show.legend = FALSE) + "
+"0","    labs(x = ""Publication Year"",y = ""InRR"", size = ""Precision (1/SE)"") +"
+"0","    theme_classic()"
+"0",""

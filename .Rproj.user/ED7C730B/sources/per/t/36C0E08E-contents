@@ -1,0 +1,284 @@
+---
+title: "Assignment2"
+date: "`r Sys.Date()`"
+author: Yiheng Du
+Studengt ID: u7457260
+output: 
+  bookdown::html_document2:
+    code_folding: show
+    number_sections: no
+    toc: yes
+    toc_depth: 6
+    toc_float: yes
+---
+
+# Introduction
+
+## library the packages which will be used.
+
+```{r results="hide"}
+library(tidyverse)
+library(metafor)
+library(orchaRd)
+library(here)
+library(pacman)
+library(flextable)
+```
+
+## Read the data
+```{r}
+data1 <- read_csv(here('data', 'OA_activitydat_20190302_BIOL3207.csv'))
+```
+
+# Do the meta-analysis 
+
+## Analysis the data form Clark get the data of Mean, SD and M.
+
+### Read the data and get the name of every fish.
+
+```{r}
+fish_name <- data1 %>% select(species) %>% unique()
+```
+
+We can get the fish name list: `{r} fish_name`
+
+### Calculate the data about the Mean, SD and N.
+
+```{r}
+tidydata <- function(i){
+  control <- data1 %>% 
+    filter(species == i) %>%
+    filter(treatment=="control") %>% 
+    select(activity) %>% 
+    drop_na()
+  oa <- data1 %>% 
+    filter(species == i) %>%
+    filter(treatment=="CO2") %>% 
+    select(activity) %>% 
+    drop_na()
+  Species = i
+  ctrl.sd = sd(control$activity)
+  ctrl.mean=mean(control$activity)
+  ctrl.n=nrow(control)
+  oa.sd = sd(oa$activity)
+  oa.mean=mean(oa$activity)
+  oa.n=nrow(oa)
+  data.frame(Species,ctrl.mean,ctrl.sd,ctrl.n, oa.mean, oa.sd, oa.n)
+}
+
+a=rbind(tidydata("ambon"),tidydata("lemon"),tidydata("chromis"),tidydata("acantho"),tidydata("humbug"),tidydata("whitedams"))
+```
+
+
+
+## Merge the summary statistics
+
+通过编码，将1）生成的汇总统计数据与Clark等人（2020）的元数据（即）合并。
+
+```{r}
+clark_paper_data <- read_csv(here("data","clark_paper_data.csv"))
+clark_paper_data
+b = cbind(clark_paper_data,a)
+```
+
+
+
+## 通过编码，将 Clark等人（2020） （1 & 2 的输出） 的组合汇总统计数据和元数据正确合并到更大的 meta 分析数据集（即 ）中。ocean_meta_data.csv
+
+```{r}
+ocean_meta_data <- read_csv(here("data","ocean_meta_data.csv"))
+meta_data = rbind(b, ocean_meta_data)
+```
+
+Then, tidy the data and change the name of every data.
+
+```{r}
+head(meta_data)
+colnames(meta_data)[3] <- 'Year_online'
+colnames(meta_data)[4] <- 'Year_print'
+meta_data <- meta_data %>% mutate(residual = 1:n())
+head(meta_data)
+```
+
+
+
+
+
+# Start the meta analys
+
+## Get the log response ration(InRR)
+
+```{r}
+InRR_data <- escalc(measure = "ROM", 
+             n1i=ctrl.n, n2i = oa.n, m1i = ctrl.mean,m2i = oa.mean,sd1i = ctrl.sd,sd2i = oa.sd,
+             data=meta_data, var.names = c("InRR", "v"))
+```
+
+
+
+## 
+
+与控制 lnRR 采样方差的数据拟合的正确元分析模型。该模型应包括研究和观察的随机效应。使用元函数。rma.mv()
+
+```{r}
+ss <- rma.mv(InRR~1, V=v,data=InRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual, ~1|Species, ~1|Year_online),
+             dfs = "contain", test = "t")
+summary(ss)
+```
+
+
+
+
+## 调查结果的书面段落及其含义，并附有数字支持。该段应包括：
+
+### 正确表示和解释总体元分析均值以及围绕均值估计值的不确定性度量（例如，95% 置信区间）。
+
+```{r}
+predict(ss, transf = "transf.ztor")
+```
+
+
+
+
+
+
+
+
+### 跨研究效应量估计的异质性度量（即我2我2和/或预测区间 - 请参阅predict()metafor)
+
+```{r}
+i2_vals <- orchaRd::i2_ml(ss)
+
+i2 <- tibble(type = firstup(gsub("I2_", "", names(i2_vals))), I2 = i2_vals)
+
+flextable(i2) %>%
+    align(part = "header", align = "center") %>%
+    compose(part = "header", j = 1, value = as_paragraph(as_b("Type"))) %>%
+    compose(part = "header", j = 2, value = as_paragraph(as_b("I"), as_b(as_sup("2")),
+        as_b("(%)")))
+
+```
+
+* Overall, we have highly heterogeneous effect size data because there is not sampling variation. 
+* From the multilevel meta-analytic model we find that only 5.57% of the total variation in effect size estimates is the result of differences between studies.
+
+```{r}
+predict(ss)
+```
+
+
+### 
+
+显示平均估计值、95% 置信区间和预测区间的森林图，并在图上绘制清晰标记的轴、样本数量和研究
+
+```{r}
+orchaRd::orchard_plot(ss, group = "InRR", mod = "InRR", data = InRR_data, xlab = "ghghation Coefficient",angle = 45)
+```
+
+
+
+
+## Visual inspections of possible publication bias – funnel plots
+
+```{r}
+funnel(x=InRR_data$InRR, vi = InRR_data$v, yaxis = "seinv", ylim = c(0.00001,60),xlim = c(-2,2),
+    digits = 3, level = c(0.1, 0.05, 0.01), shade = c("white", "gray55", "gray 75"),
+    las = 1, xlab = "Correlation Coefficient (r)", atransf = tanh, legend = TRUE)
+```
+
+From the figure it can be seen that the graph is typical of a funnel trait. 
+
+Most of the effects are present in the positive correlation space. 
+
+But at the same time there are also many studies outside the positive correlation space.
+
+Moreover, we can find that articles can be published in cases where the relevance is particularly high, which means that the apparently authored results can help increase the success rate of publication.
+
+```{r}
+aaa <- InRR_data %>% filter(v < 20)
+ggplot(aaa, aes(y = InRR, x = v)) + geom_point() + geom_smooth(method = "lm") +
+    labs(y = "InRR", x = "Sampling Variance of InRR") +
+    theme_classic()
+```
+```{r}
+mly <- rma.mv(InRR~v, V=v,data=InRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual, ~1|Species),
+             dfs = "contain", test = "t")
+mly
+```
+
+
+
+## Fitting a Multilevel Meta-Regression model to Test and Correct for Publication bias
+
+
+```{r, fig.cap=""}
+ggplot(InRR_data, aes(y = InRR_data$InRR, x =InRR_data$Year_online, size = 1/sqrt(v))) + geom_point(alpha = 0.3) +
+    geom_smooth(method = "lm", col = "red", show.legend = FALSE) + 
+    labs(x = "Publication Year",y = "InRR", size = "Precision (1/SE)") +
+    theme_classic()
+
+```
+
+1. There does appear to be a little positive relationship with year.
+2. From the figure, we can learn that as time increases, we find that there does not seem to be much change in the accuracy of the sampling.
+3. Also of note are that the time near 2012 studies have much higher sampling variance(i.e., lower precision), maybe there are something happened this time.
+
+
+
+## 
+
+正式的元回归模型，包括年份作为调节因子（固定效应），以测试时间滞后偏差
+
+```{r}
+forestdata <- rma.mv(InRR~Year_online, V=v,data=InRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual, ~1|Species),
+             dfs = "contain",test = "t")
+#orchaRd::orchard_plot(forestdata, group = "Species", mod = "REML", data = InRR_data, xlab = "ghghation Coefficient (Zr)",angle = 45)
+```
+
+```{r}
+st <- rma.mv(InRR, V=v,data=InRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual, ~1|Species),
+             dfs = "contain",test = "t")
+ggplot(InRR_data, aes(y = InRR_data$InRR, x =InRR_data$Year_online, size = 1/sqrt(v))) + 
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", col = "red", show.legend = FALSE) + 
+  labs(x = "Publication Year",y = "InRR", size = "Precision (1/SE)") +
+  theme_classic()
+```
+
+
+```{r}
+#
+
+st <- rma.mv(InRR~Year_online, V=v,data=InRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual, ~1|Species),
+             dfs = "contain",test = "t")
+ggplot(InRR_data, aes(y = InRR_data$InRR, x =InRR_data$Year_online, size = 1/sqrt(v))) + 
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", col = "red", show.legend = FALSE) + 
+  labs(x = "Publication Year",y = "InRR", size = "Precision (1/SE)") +
+  theme_classic()
+```
+
+
+
+## 包含逆抽样方差的形式化元回归模型（即1vlnRR1vlnRR） 以测试文件抽屉偏差
+
+```{r}
+
+metareg_time <- rma.mv(InRR ~ Year_online + 1/v, V = 1/v, 
+                       random = list(~1|Study, ~1|residual, ~1|Species),
+                       test = "t", dfs = "contain", data = InRR_data)
+summary(metareg_time)
+```
+
+
+## 一个书面段落，讨论基于元回归结果的发表偏差的可能性。数据中似乎存在哪种类型的发表偏差（如果有的话）？如果存在发表偏见，这意味着什么，是什么可能导致这种偏见？
+
+## 确定任何导致发表偏倚的研究。您更新的荟萃分析结果与Cleement等人（2022）的荟萃分析相比如何？对这些研究有什么担忧吗？如果是，请说明使用对现有论文的引用，提出了哪些关切？
+
+
+

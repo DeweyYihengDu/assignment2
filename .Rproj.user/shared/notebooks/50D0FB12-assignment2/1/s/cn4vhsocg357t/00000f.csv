@@ -1,0 +1,4 @@
+"0","aaa <- InRR_data %>% filter(v < 20)"
+"0","ggplot(aaa, aes(y = InRR, x = v)) + geom_point() + geom_smooth(method = ""lm"") +"
+"0","    labs(y = ""InRR"", x = ""Sampling Variance of InRR"") +"
+"0","    theme_classic()"

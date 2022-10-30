@@ -1,0 +1,4 @@
+"0","colnames(meta_data)[3] <- 'Year_online'"
+"0","colnames(meta_data)[4] <- 'Year_print'"
+"0","meta_data <- meta_data %>% mutate(residual = 1:n())"
+"0","head(meta_data)"

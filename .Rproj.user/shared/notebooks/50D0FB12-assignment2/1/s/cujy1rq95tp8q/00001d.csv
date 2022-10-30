@@ -1,0 +1,6 @@
+"0","forestdata <- rma.mv(InRR~Year_online, V=v,data=InRR_data,method = ""REML"", "
+"0","             random = list(~1|Study, ~1|residual, ~1|Species),"
+"0","             dfs = ""contain"",test = ""t"")"
+"2","Warning: Rows with NAs omitted from model fitting."
+"2","Warning: Ratio of largest to smallest sampling variance extremely large. May not be able to obtain stable results."
+"0","#orchaRd::orchard_plot(forestdata, group = ""Species"", mod = ""REML"", data = InRR_data, xlab = ""ghghation Coefficient (Zr)"",angle = 45)"

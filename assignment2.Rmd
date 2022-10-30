@@ -2,8 +2,6 @@
 title: "Assignment2"
 date: "`r Sys.Date()`"
 author: Yiheng Du
-Studengt ID: u7457260
-
 output: 
   bookdown::html_document2:
     code_folding: show
@@ -12,7 +10,9 @@ output:
     toc_depth: 6
     toc_float: yes
 ---
-bibliography: ./bib/refs.bib
+
+Student ID: u7457260
+Github Sharing: [The address of Github](https://github.com/DeweyYihengDu/assignment2)
 
 # Introduction
 
@@ -24,7 +24,7 @@ library(metafor)
 library(orchaRd)
 library(here)
 library(pacman)
-
+library(flextable)
 ```
 
 ## Read the data
@@ -35,8 +35,6 @@ data1 <- read_csv(here('data', 'OA_activitydat_20190302_BIOL3207.csv'))
 # Do the meta-analysis 
 
 ## Analysis the data form Clark get the data of Mean, SD and M.
-
-正确分析Clark等人（2020）数据（即），以生成每种鱼类每次处理的平均活性的汇总统计数据（平均值，SD，N）。
 
 ### Read the data and get the name of every fish.
 
@@ -77,8 +75,6 @@ a=rbind(tidydata("ambon"),tidydata("lemon"),tidydata("chromis"),tidydata("acanth
 
 ## Merge the summary statistics
 
-通过编码，将1）生成的汇总统计数据与Clark等人（2020）的元数据（即）合并。
-
 ```{r}
 clark_paper_data <- read_csv(here("data","clark_paper_data.csv"))
 clark_paper_data
@@ -86,135 +82,284 @@ b = cbind(clark_paper_data,a)
 ```
 
 
-## 通过编码，将 Clark等人（2020） （1 & 2 的输出） 的组合汇总统计数据和元数据正确合并到更大的 meta 分析数据集（即 ）中。ocean_meta_data.csv
+
+## Merge the combined summary statistics and metadata from Clark et al. (2020) (output from 1 & 2) into the larger meta-analysis dataset 
 
 ```{r}
 ocean_meta_data <- read_csv(here("data","ocean_meta_data.csv"))
 meta_data = rbind(b, ocean_meta_data)
 ```
 
-
+Then, tidy the data and reneme some data.
 
 ```{r}
-head(meta_data)
 colnames(meta_data)[3] <- 'Year_online'
 colnames(meta_data)[4] <- 'Year_print'
+colnames(meta_data)[11] <- 'Climate'
+colnames(meta_data)[15] <- 'Life_stage'
+colnames(meta_data)[10] <- "Effect_type"
+meta_data <- meta_data %>% mutate(residual = 1:n())
+```
+
+```{r}
 head(meta_data)
 ```
 
 
+# Start the meta analys
 
-
-
-
-
-## Get the log response ration(InRR)
-
-使用 metafor 的函数正确计算数据帧每行的对数响应比 （lnRR） 效应大小。escalc()
+## Get the log response ration(LnRR)
 
 ```{r}
-tt <- escalc(measure = "ROM", n1i=ctrl.n, n2i = oa.n, m1i = ctrl.mean,m2i = oa.mean,sd1i = ctrl.sd,sd2i = oa.sd,data=meta_data)
-tt
-
-
-
+LnRR_data <- escalc(measure = "ROM", 
+             n1i=ctrl.n, n2i = oa.n, m1i = ctrl.mean,m2i = oa.mean,sd1i = ctrl.sd,sd2i = oa.sd,
+             data=meta_data, var.names = c("LnRR", "v"))
 ```
 
 
 
-## 与控制 lnRR 采样方差的数据拟合的正确元分析模型。该模型应包括研究和观察的随机效应。使用元函数。rma.mv()
+## Correct meta-analytic model fitted to the data that controls for the sampling variance of lnRR.
+
 
 ```{r}
-ss <- rma.mv(yi~vi, V=vi,data=tt,method = "REML", random = list(~1|Study),dfs = "contain",
-             test = "t")
-ss
+ss <- rma.mv(LnRR~1, V=v,data=LnRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual, ~1|Year_online),
+             dfs = "contain", test = "t")
+summary(ss)
 ```
 
 
 
 
-## 调查结果的书面段落及其含义，并附有数字支持。该段应包括：
+## The result 
 
-### 正确表示和解释总体元分析均值以及围绕均值估计值的不确定性度量（例如，95% 置信区间）。
+### 95% Confidence Intervals in this model
+
+```{r}
+predict(ss, transf = "transf=exp")
+```
 
 
+The 95% prediction intervals are wide. LnRR are expected to range from -1.0981 to 0.3142 95% of the time with repeated experiments, suggesting a lot of inconsistency between studies.
 
-### 跨研究效应量估计的异质性度量（即我2我2和/或预测区间 - 请参阅predict()metafor)
+* The 95% confidence interval ranged from -1.0981 to 0.3142.
+* In 95% of the probability cases, the true value is expected to fall from -1.0981 to 0.3142.
+* In other words, if we were to repeat the experiment many times, 95% of the confidence intervals constructed would contain the true meta-analytic mean.
+
+
+### Measures of heterogeneity in effect size estimates across studies 
+
+
+```{r}
+i2_vals <- orchaRd::i2_ml(ss)
+
+i2 <- tibble(type = firstup(gsub("I2_", "", names(i2_vals))), I2 = i2_vals)
+
+flextable(i2) %>%
+    align(part = "header", align = "center") %>%
+    compose(part = "header", j = 1, value = as_paragraph(as_b("Type"))) %>%
+    compose(part = "header", j = 2, value = as_paragraph(as_b("I"), as_b(as_sup("2")),
+        as_b("(%)")))
+
+```
+
+* Overall, we have highly heterogeneous effect size data because there is not sampling variation. 
+* From the model we find that no total variation in effect size estimates is the result of differences between studies, because their $I^2 $ is close to 0.
+* From the multilevel meta-analysis model, we found that only 1.73% of the total variation in effect size estimates was the result of inter-species variation.
+* But about 21% of the total variation in effect size estimates was the result of Year_online variation.
+
+
 
 ```{r}
 predict(ss)
 ```
 
-
-### 显示平均估计值、95% 置信区间和预测区间的森林图，并在图上绘制清晰标记的轴、样本数量和研究
-
+*The 
 
 
-## 漏斗图，用于直观地评估发表偏差的可能性。
 
-    
-    
-```{r}
-funnel(x=tt$yi, vi = tt$vi, yaxis = "seinv", ylim = c(0.00001,60),xlim = c(-2,2),
-    digits = 3, level = c(0.1, 0.05, 0.01), shade = c("white", "gray55", "gray 75"),
-    las = 1, xlab = "Correlation Coefficient (r)", atransf = tanh, legend = TRUE)
+
+
+### The forest plot about the meta analysis
+
+
+```{r, fig.cap="Fig1 Orchard plot of the main model"}
+M1 <- rma.mv(LnRR~1, V=v,data=LnRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual, ~1|Species, ~1|Year_online),
+             dfs = "contain", test = "t")
+orchaRd::orchard_plot(M1, group = "Study", mod = "1", data = LnRR_data, xlab = "ghghation Coefficient",angle = 45) + labs(title = "Fig1 Orchard plot of the main model")
 ```
 
+From Fig1, we can find that k = the number of effect sizes and the number of studies are in brackets. k=801(92) means the number of studies is 801 and the number of effect sizes is 92. 
+The mean value is the circle in the plot, nearly in the end of the plot. The 95% confidence interval is shown as a short bolded horizontal line in the graph.
 
-```{r}
-aaa <- tt %>% filter(vi < 20)
-ggplot(aaa, aes(y = yi, x = vi)) + geom_point() + geom_smooth(method = "lm") +
-    labs(y = "InRR", x = "Sampling Variance of InRR") +
+
+
+```{r, fig.cap="Fig2 Orchard plot about the Climate"}
+M2Climate<- rma.mv(LnRR~Climate-1, V=v,data=LnRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual,  ~1|Year_online),
+             dfs = "contain", test = "t")
+orchaRd::orchard_plot(M2Climate, group = "Study", mod = "Climate", data = LnRR_data, xlab = "ghghation Coefficient",angle = 45)+labs(title="The forest plot of the model of climate") + labs(title = "Fig2 Orchard plot about the Climate")
+```
+
+Form Fig2, it shows that the climate influence during the model of meta-regression. And the 
+
+```{r, fig.cap="Fig3 Orchard plot of the meta-regression model about Life Stage"}
+M3Life_stage<- rma.mv(LnRR~Life_stage-1, V=v,data=LnRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual,  ~1|Year_online),
+             dfs = "contain", test = "t")
+orchaRd::orchard_plot(M3Life_stage, group = "Study", mod = "Life_stage", data = LnRR_data, xlab = "ghghation Coefficient",angle = 45)+labs(title="Fig3 Orchard plot of the meta-regression model about Life Stage")
+```
+
+From the Fig3, the mean is a hollow circle in the middle and the 95% confidence interval is a short horizontal line thickened in the middle. `k` is the number of effect sizes and the number of studies are in brackets.
+
+```{r, fig.cap="Fig4 Orchard plot of the meta-regression model about effect type"}
+M4Effect_type<- rma.mv(LnRR~Effect_type-1, V=v,data=LnRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual,  ~1|Year_online),
+             dfs = "contain", test = "t")
+orchaRd::orchard_plot(M4Effect_type, group = "Study", mod = "Effect_type", data = LnRR_data, xlab = "ghghation Coefficient",angle = 45)+labs(title="The forest plot of the model of Effect type")
+```
+
+From the Fig4, the mean is a hollow circle in the middle and the 95% confidence interval is a short horizontal line thickened in the middle. `k` is the number of effect sizes and the number of studies are in brackets.
+
+
+### Total result
+
+From Fig1, we can find that most of the studies are going to have negative effects. 
+
+From Fig2, different climates can produce large deviations in the results, and the side effects are obvious in deep environments.
+
+From Fig3, the different life stages will have a certain bias on the results, with the juvenile stage producing more pronounced side effects. This is also consistent with the fact that larvae are more sensitive to environmental changes.
+
+From Fig4, the effect type maybe can not influence the results. That is, there was no significant deviation from the impact type during the publication process. The reason for this may be that this type of research is still in its infancy and no traditional ideas about this type of research have arisen.
+
+## Visual inspections of possible publication bias – funnel plots
+
+```{r, fig.cap="Fig5 Funnel plot showing the precision of effects against their correlation"}
+funnel(x=LnRR_data$LnRR, vi = LnRR_data$v, yaxis = "seinv", ylim = c(0.00001,60),xlim = c(-2,2),
+    digits = 3, level = c(0.1, 0.05, 0.01), shade = c("white", "gray55", "gray 75"),
+    las = 1, xlab = "Correlation Coefficient (r)", atransf = tanh, legend = TRUE) 
+```
+
+From the Fig5, it can be seen that the graph is typical of a funnel trait. 
+
+Most of the effects are present in the positive correlation space. 
+
+But at the same time there are also many studies outside the positive correlation space.
+
+Moreover, we can find that articles can be published in cases where the relevance is particularly high, which means that the apparently authored results can help increase the success rate of publication.
+
+```{r, fig.cap="Fig 6 The plot of Sampling Variance of LnRR against LnRR"}
+aaa <- LnRR_data %>% filter(v < 20)
+ggplot(aaa, aes(y = LnRR, x = v)) + geom_point() + geom_smooth(method = "lm") +
+    labs(y = "LnRR", x = "Sampling Variance of LnRR",title="Fig 6 The plot of Sampling Variance of LnRR against LnRR")+
     theme_classic()
 ```
+
+Form Fig6, it is not difficult to see the line is sloped upward. And there were more publications with stronger side effects, so we inferred that there was a publication bias. It may be that the very strong side effects make more sense to the authors or the reviewers.
+
+```{r}
+mly <- rma.mv(LnRR~v, V=v,data=LnRR_data,method = "REML", 
+             random = list(~1|Study, ~1|residual, ~1|Species),
+             dfs = "contain", test = "t")
+mly
+```
+
+From the result of meta_regession mode, it shows that if the v as a moderator, the accuracy of the model can be imporoved because the estimate is -0.0611 which is near 0.
+
+
+```{r}
+r2 <- orchaRd::r2_ml(mly)
+r2
+```
+
+And we can find that the R2_conditional is lager than the R2_marginal. We can see that sampling variance explains 2.79% of effect size variance. This is the marginal $R^2$, which tell us how much variation the ‘fixed effects’ or moderators explain in the model. Conditional $R^2$ tells us that the full model, that accounts for the both the fixed and random effects, explains 95.28% of variance in effect size.
 
 
 ## Fitting a Multilevel Meta-Regression model to Test and Correct for Publication bias
 
-时间滞后图评估效应大小如何随时间变化或可能不随时间变化。
 
-```{r}
-ggplot(tt, aes(y = tt$yi, x =tt$Year_online, size = 1/sqrt(vi))) + geom_point(alpha = 0.3) +
+```{r, fig.cap="Fig7 Plot of LnRR as a function of publication year"}
+ggplot(LnRR_data, aes(y = LnRR_data$LnRR, x =LnRR_data$Year_online, size = 1/sqrt(v))) + geom_point(alpha = 0.3) +
     geom_smooth(method = "lm", col = "red", show.legend = FALSE) + 
-    labs(x = "Publication Year",y = "InRR", size = "Precision (1/SE)") +
-    theme_classic()
+    labs(x = "Publication Year",y = "LnRR", size = "Precision (1/SE)") +
+  geom_hline(yintercept = 0)+
+    theme_classic()+
+  labs(title = "Fig7 Plot of LnRR as a function of publication year")
 
 ```
 
+1. There does appear to be a little positive relationship with year.
+2. From the figure, we can learn that as time increases, we find that there does not seem to be much change in the accuracy of the sampling.
+3. Also of note are that the time near 2012 studies have much higher sampling variance(i.e., lower precision), maybe there are something happened this time.
+4. The reason for the high accuracy in the earliest studies may be due to the fact that the researchers who first discovered the phenomenon conducted experiments with huge sample sizes in order to prove the existence of the phenomenon, thus making it highly accurate.
+5. However, the large variance of the early studies may be due to the lack of standardized operational procedures and analysis methods developed in the early years, resulting in less accurate results in the previous years.
+6. As the year increases, the fitted straight line gradually crosses the 0-axis line, which means that the variance becomes progressively smaller and the effect of the effect becomes progressively more pronounced.
+7. In recent years, the curve has flattened out, implying that the influence of year on this study has gradually diminished and that the methodology of this type of study is maturing. 
 
 
-
-
-## 正式的元回归模型，包括年份作为调节因子（固定效应），以测试时间滞后偏差
+## Formal meta-regression model that includes year as a moderator (fixed effect) to test for time-lag bias
 
 ```{r}
-#orchaRd::orchard_plot(ss, group = "Study", mod = "Year_online", data = tt, xlab = "ghghation Coefficient (Zr)",angle = 45)
-
-st <- rma.mv(yi~Year_online, V=vi,data=tt,method = "REML", random = list(~1|Study),dfs = "contain",
-             test = "t")
-ggplot(tt, aes(y = tt$yi, x =tt$Year_online, size = 1/sqrt(vi))) + 
-  geom_point(alpha = 0.3) +
-  geom_smooth(method = "lm", col = "red", show.legend = FALSE) + 
-  labs(x = "Publication Year",y = "InRR", size = "Precision (1/SE)") +
-  theme_classic()
+arnold_data_endo <- LnRR_data %>%
+    mutate(Year_c = Year_online - mean(Year_online))
+metareg_time_c <- rma.mv(LnRR ~ Year_c, V = v, random = list(~1 | Study), test = "t", dfs = "contain", data = arnold_data_endo)
+summary(metareg_time_c) 
 ```
 
-
-
-## 包含逆抽样方差的形式化元回归模型（即1vlnRR1vlnRR） 以测试文件抽屉偏差
+Subtracting the year from the average of the years to achieve the effect of pooling the years and as a moderator is found to improve the accuracy of meta-model.
 
 ```{r}
-
-metareg_time <- rma.mv(yi ~ Year_online + 1/vi, V = 1/vi, random = list(~1 | Study),
-    test = "t", dfs = "contain", data = tt)
-summary(metareg_time)
+metareg_time <- rma.mv(LnRR ~ Year_online, V = v, random = list(~1 | Study), test = "t", dfs = "contain", data = arnold_data_endo)
+r2_time <- orchaRd::r2_ml(metareg_time)  
+r2_time
 ```
 
+We can see that sampling variance explains 31.32% of effect size variance. This is the marginal $R^2$, which tell us how much variation the ‘fixed effects’ or moderators explain in the model. Conditional $R^2$ tells us that the full model, that accounts for the both the fixed and random effects, explains 72.14% of variance in effect size.
 
-## 一个书面段落，讨论基于元回归结果的发表偏差的可能性。数据中似乎存在哪种类型的发表偏差（如果有的话）？如果存在发表偏见，这意味着什么，是什么可能导致这种偏见？
-
-## 确定任何导致发表偏倚的研究。您更新的荟萃分析结果与Cleement等人（2022）的荟萃分析相比如何？对这些研究有什么担忧吗？如果是，请说明使用对现有论文的引用，提出了哪些关切？
-
+It is useful to use year as a moderator. 
 
 
-\
+
+## Formal meta-regression model that includes inverse sampling variance to test for file-drawer biases
+
+Use the v and LnRR as mators to formal meta-regression model. 
+
+I use the $1/(LnRR * vi)$ to link them.
+
+```{r}
+lastone <- rma.mv(LnRR ~ 1/(v*LnRR), V = v, random = list(~1 | Study), test = "t", dfs = "contain", data = arnold_data_endo)
+summary(lastone)
+```
+
+From the result of meta-regression model, we can get the estimate is very little so that it is helpful for the modelling.
+
+# Discussion
+
+## The result of meta-analysis
+
+There appears to be a temporal publication bias in the data. In the beginning it may have been due to the low importance given to the results of studies with small samples, which led to a large sample size in some of the first published articles. As time progresses, the experimental samples and effects gradually tend toward the mean. The large variance in the first few years may be due to the immaturity of the experimental methods and techniques, resulting in large experimental results.
+
+Climate and life stage are also the publication biases of such studies. Among the climates, deep climate has the most bias. The reason for the higher bias in deep may be that there are more species studied in this category and there is a better research base. There are two possible reasons for more deviations in juveniles: one is that juveniles are more sensitive to external influences, and the other is that juveniles are easier to study and more obvious results can easily appear.
+
+The effect type has a small effect on publication, and the number of publications is high for both positive and negative effects and no effect. The reason for this may be that this type of research is still in the development stage and no traditional view has been formed. All types of studies are in an equal state and the acceptance of their findings is high.
+
+
+## Compare with a meta-analysis by others.
+
+At the study of fish behavior, we can find many publication biases at present, these include years, climate and life stage. Compared with the result of Cleement et. al.(2022), I add the years to this deviation during the model of meta-regression analysis. From the Years of the possibility of publication bias, the bias is larger in the earlier years, but decreases as the years increase, which represents that such studies are becoming more standardized and the results do not produce more variation.
+
+The results are consistent with his study in that there is a large deviation in the direction of climate and life stage. It is possible that the publication bias is influenced by the simplicity of the studies on the non-larval stage or the greater experience in pre-coldwater fish studies. 
+
+There are two possibilities for the lack of publication bias in effect style: one is that the research is not yet mature and people have not yet formed traditional ideas about this type of research, and the other possibility is that the research is already very mature and there is more inclusiveness about the results of this type of research, so there is no publication bias about effect style.
+
+And combined with the above discussion, we can learn that the current research at this stage is still in the development stage, without the formation of a more solid traditional concept. There is still specificity in the selection of some, for example, climate and life style, so there are large deviations in these areas. If this situation persists, it may result in some duplicate or similar experiments, which may create a waste. And under the influence of some, for example, ocean acidification, no significant deviations have been found for such effects.
+
+In general, the majority of the results show that CO2 rise reduces the activity of fish, but there are more differences between different climates or life styles. Therefore, in future studies, we should focus on different species, different living environments, and different life states to achieve additional clarification in this field.
+
+# Reference
+
+[1]Clements JC, Sundin J, Clark TD, Jutfelt F. Meta-analysis reveals an extreme "decline effect" in the impacts of ocean acidification on fish behavior. PLoS Biol. 2022 Feb 3;20(2):e3001511. doi: 10.1371/journal.pbio.3001511. PMID: 35113875; PMCID: PMC8812914.
+
+
+
