@@ -123,7 +123,7 @@ LnRR_data <- escalc(measure = "ROM",
 
 ```{r}
 ss <- rma.mv(LnRR~1, V=v,data=LnRR_data,method = "REML", 
-             random = list(~1|Study, ~1|residual, ~1|Year_online),
+             random = list(~1|Study, ~1|residual, ~1|Year_online, ~1|Climate,~1|Life_stage, ~1|Species,~1|Effect_type),
              dfs = "contain", test = "t")
 summary(ss)
 ```
@@ -136,14 +136,15 @@ summary(ss)
 ### 95% Confidence Intervals in this model
 
 ```{r}
-predict(ss, transf = "transf=exp")
+a=predict(ss, transf = "transf=exp")
+a
 ```
 
 
-The 95% prediction intervals are wide. LnRR are expected to range from -1.0981 to 0.3142 95% of the time with repeated experiments, suggesting a lot of inconsistency between studies.
+The 95% prediction intervals are wide. LnRR are expected to range from `r a$ci.lb` to `r a$ci.ub` 95% of the time with repeated experiments, suggesting a lot of inconsistency between studies.
 
-* The 95% confidence interval ranged from -1.0981 to 0.3142.
-* In 95% of the probability cases, the true value is expected to fall from -1.0981 to 0.3142.
+* The 95% confidence interval ranged from `r a$ci.lb` to `r a$ci.ub`.
+* In 95% of the probability cases, the true value is expected to fall from `r a$ci.lb` to `r a$ci.ub`.
 * In other words, if we were to repeat the experiment many times, 95% of the confidence intervals constructed would contain the true meta-analytic mean.
 
 
@@ -163,19 +164,20 @@ flextable(i2) %>%
 
 ```
 
-* Overall, we have highly heterogeneous effect size data because there is not sampling variation. 
-* From the model we find that no total variation in effect size estimates is the result of differences between studies, because their $I^2 $ is close to 0.
-* From the multilevel meta-analysis model, we found that only 1.73% of the total variation in effect size estimates was the result of inter-species variation.
-* But about 21% of the total variation in effect size estimates was the result of Year_online variation.
 
+* Overall, we have highly heterogeneous effect size data because the total $I^2$ is `r i2[1,2]`% . 
+* From the multilevel meta-analysis model, we found that `r i2[2,2]`% of the total variation in effect size estimates was the result of between-study variation.
+* From the multilevel meta-analysis model, we found that `r i2[4,2]`% of the total variation in effect size estimates was the result of between-Year_online variation.
+* From the multilevel meta-analysis model, we found that `r i2[5,2]`% of the total variation in effect size estimates was the result of between-Climate variation.
+* From the multilevel meta-analysis model, we found that `r i2[6,2]`% of the total variation in effect size estimates was the result of between-Life_stage variation.
+* From the multilevel meta-analysis model, we found that `r i2[7,2]`% of the total variation in effect size estimates was the result of between-Effect_type variation.
 
 
 ```{r}
 predict(ss)
 ```
 
-*The 
-
+The pre
 
 
 
@@ -183,7 +185,7 @@ predict(ss)
 ### The forest plot about the meta analysis
 
 
-```{r, fig.cap="Fig1 Orchard plot of the main model"}
+```{r, fig.cap="Orchard plot of the main model"}
 M1 <- rma.mv(LnRR~1, V=v,data=LnRR_data,method = "REML", 
              random = list(~1|Study, ~1|residual, ~1|Species, ~1|Year_online),
              dfs = "contain", test = "t")
@@ -195,7 +197,7 @@ The mean value is the circle in the plot, nearly in the end of the plot. The 95%
 
 
 
-```{r, fig.cap="Fig2 Orchard plot about the Climate"}
+```{r, fig.cap="Orchard plot about the Climate"}
 M2Climate<- rma.mv(LnRR~Climate-1, V=v,data=LnRR_data,method = "REML", 
              random = list(~1|Study, ~1|residual,  ~1|Year_online),
              dfs = "contain", test = "t")
@@ -204,7 +206,7 @@ orchaRd::orchard_plot(M2Climate, group = "Study", mod = "Climate", data = LnRR_d
 
 Form Fig2, it shows that the climate influence during the model of meta-regression. And the 
 
-```{r, fig.cap="Fig3 Orchard plot of the meta-regression model about Life Stage"}
+```{r, fig.cap="Orchard plot of the meta-regression model about Life Stage"}
 M3Life_stage<- rma.mv(LnRR~Life_stage-1, V=v,data=LnRR_data,method = "REML", 
              random = list(~1|Study, ~1|residual,  ~1|Year_online),
              dfs = "contain", test = "t")
@@ -213,7 +215,7 @@ orchaRd::orchard_plot(M3Life_stage, group = "Study", mod = "Life_stage", data = 
 
 From the Fig3, the mean is a hollow circle in the middle and the 95% confidence interval is a short horizontal line thickened in the middle. `k` is the number of effect sizes and the number of studies are in brackets.
 
-```{r, fig.cap="Fig4 Orchard plot of the meta-regression model about effect type"}
+```{r, fig.cap="Orchard plot of the meta-regression model about effect type"}
 M4Effect_type<- rma.mv(LnRR~Effect_type-1, V=v,data=LnRR_data,method = "REML", 
              random = list(~1|Study, ~1|residual,  ~1|Year_online),
              dfs = "contain", test = "t")
@@ -235,7 +237,7 @@ From Fig4, the effect type maybe can not influence the results. That is, there w
 
 ## Visual inspections of possible publication bias – funnel plots
 
-```{r, fig.cap="Fig5 Funnel plot showing the precision of effects against their correlation"}
+```{r, fig.cap="Funnel plot showing the precision of effects against their correlation"}
 funnel(x=LnRR_data$LnRR, vi = LnRR_data$v, yaxis = "seinv", ylim = c(0.00001,60),xlim = c(-2,2),
     digits = 3, level = c(0.1, 0.05, 0.01), shade = c("white", "gray55", "gray 75"),
     las = 1, xlab = "Correlation Coefficient (r)", atransf = tanh, legend = TRUE) 
@@ -249,7 +251,7 @@ But at the same time there are also many studies outside the positive correlatio
 
 Moreover, we can find that articles can be published in cases where the relevance is particularly high, which means that the apparently authored results can help increase the success rate of publication.
 
-```{r, fig.cap="Fig 6 The plot of Sampling Variance of LnRR against LnRR"}
+```{r, fig.cap="The plot of Sampling Variance of LnRR against LnRR"}
 aaa <- LnRR_data %>% filter(v < 20)
 ggplot(aaa, aes(y = LnRR, x = v)) + geom_point() + geom_smooth(method = "lm") +
     labs(y = "LnRR", x = "Sampling Variance of LnRR",title="Fig 6 The plot of Sampling Variance of LnRR against LnRR")+
@@ -279,7 +281,7 @@ And we can find that the R2_conditional is lager than the R2_marginal. We can se
 ## Fitting a Multilevel Meta-Regression model to Test and Correct for Publication bias
 
 
-```{r, fig.cap="Fig7 Plot of LnRR as a function of publication year"}
+```{r, fig.cap="Plot of LnRR as a function of publication year"}
 ggplot(LnRR_data, aes(y = LnRR_data$LnRR, x =LnRR_data$Year_online, size = 1/sqrt(v))) + geom_point(alpha = 0.3) +
     geom_smooth(method = "lm", col = "red", show.legend = FALSE) + 
     labs(x = "Publication Year",y = "LnRR", size = "Precision (1/SE)") +
@@ -303,19 +305,19 @@ ggplot(LnRR_data, aes(y = LnRR_data$LnRR, x =LnRR_data$Year_online, size = 1/sqr
 ```{r}
 arnold_data_endo <- LnRR_data %>%
     mutate(Year_c = Year_online - mean(Year_online))
-metareg_time_c <- rma.mv(LnRR ~ Year_c, V = v, random = list(~1 | Study), test = "t", dfs = "contain", data = arnold_data_endo)
+metareg_time_c <- rma.mv(LnRR ~ Year_c-1, V = v, random = list(~1 | Study), test = "t", dfs = "contain", data = arnold_data_endo)
 summary(metareg_time_c) 
 ```
 
 Subtracting the year from the average of the years to achieve the effect of pooling the years and as a moderator is found to improve the accuracy of meta-model.
 
 ```{r}
-metareg_time <- rma.mv(LnRR ~ Year_online, V = v, random = list(~1 | Study), test = "t", dfs = "contain", data = arnold_data_endo)
+metareg_time <- rma.mv(LnRR ~ Year_online-1, V = v, random = list(~1 | Study), test = "t", dfs = "contain", data = arnold_data_endo)
 r2_time <- orchaRd::r2_ml(metareg_time)  
 r2_time
 ```
 
-We can see that sampling variance explains 31.32% of effect size variance. This is the marginal $R^2$, which tell us how much variation the ‘fixed effects’ or moderators explain in the model. Conditional $R^2$ tells us that the full model, that accounts for the both the fixed and random effects, explains 72.14% of variance in effect size.
+We can see that sampling variance explains 31.32% of effect size variance. This is the marginal $R^2$, which tells us how much variation the ‘fixed effects’ or moderators explain in the model. Conditional $R^2$ tells us that the full model, which accounts for both the fixed and random effects, explains 72.14% of the variance in effect size.
 
 It is useful to use year as a moderator. 
 
@@ -347,15 +349,16 @@ The effect type has a small effect on publication, and the number of publication
 
 ## Compare with a meta-analysis by others.
 
-At the study of fish behavior, we can find many publication biases at present, these include years, climate and life stage. Compared with the result of Cleement et. al.(2022), I add the years to this deviation during the model of meta-regression analysis. From the Years of the possibility of publication bias, the bias is larger in the earlier years, but decreases as the years increase, which represents that such studies are becoming more standardized and the results do not produce more variation.
+In the study of fish behavior, we can find many publication biases at present, these include years, climate, and life stage. Compared with the result of [Cleement et. al.(2022)](https://pubmed.ncbi.nlm.nih.gov/35113875/), I add the years to this deviation during the model of meta-regression analysis. From the Years of the possibility of publication bias, the bias is larger in the earlier years but decreases as the year's increase, which represents that such studies are becoming more standardized and the results do not produce more variation.
 
-The results are consistent with his study in that there is a large deviation in the direction of climate and life stage. It is possible that the publication bias is influenced by the simplicity of the studies on the non-larval stage or the greater experience in pre-coldwater fish studies. 
+The results are consistent with his study in that there is a large deviation in the direction of climate and life stage. The publication bias may be influenced by the simplicity of the studies on the non-larval stage or the greater experience in pre-coldwater fish studies. 
 
 There are two possibilities for the lack of publication bias in effect style: one is that the research is not yet mature and people have not yet formed traditional ideas about this type of research, and the other possibility is that the research is already very mature and there is more inclusiveness about the results of this type of research, so there is no publication bias about effect style.
 
-And combined with the above discussion, we can learn that the current research at this stage is still in the development stage, without the formation of a more solid traditional concept. There is still specificity in the selection of some, for example, climate and life style, so there are large deviations in these areas. If this situation persists, it may result in some duplicate or similar experiments, which may create a waste. And under the influence of some, for example, ocean acidification, no significant deviations have been found for such effects.
+And combined with the above discussion, we can learn that the current research at this stage is still in the development stage, without the formation of a more solid traditional concept. There is still specificity in the selection of some, for example, climate and lifestyle, so there are large deviations in these areas. If this situation persists, it may result in some duplicate or similar experiments, which may create waste. And under the influence of some, for example, ocean acidification, no significant deviations have been found for such effects.
 
-In general, the majority of the results show that CO2 rise reduces the activity of fish, but there are more differences between different climates or life styles. Therefore, in future studies, we should focus on different species, different living environments, and different life states to achieve additional clarification in this field.
+In general, the majority of the results show that $CO_2$ rise reduces the activity of fish, but there are more differences between different climates or lifestyles. Therefore, in future studies, we should focus on different species, different living environments, and different life states to achieve additional clarification in this field.
+
 
 # Reference
 
