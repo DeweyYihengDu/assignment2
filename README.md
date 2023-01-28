@@ -1,6 +1,23 @@
 # The meta-analysis about fish behaviors
 ## The data and required packages
 
+### The formula of the html
+
+```
+---
+title: "Assignment2"
+date: "`r Sys.Date()`"
+author: Yiheng Du
+output: 
+  bookdown::html_document2:
+    code_folding: show
+    number_sections: no
+    toc: yes
+    toc_depth: 6
+    toc_float: yes
+---
+```
+
 ### Data
 The original data has three parts, 
 one data is from the material of the previous workshop, 
